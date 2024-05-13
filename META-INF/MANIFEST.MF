@@ -1,0 +1,27 @@
+Manifest-Version: 1.0
+Automatic-Module-Name: Shopify-ntier
+Bundle-ManifestVersion: 2
+Bundle-Name: Shopify-ntier
+Bundle-SymbolicName: za.co.ntier.shopify;singleton:=true
+Bundle-Version: 1.0.0.qualifier
+Bundle-RequiredExecutionEnvironment: JavaSE-11
+Require-Bundle: org.adempiere.base;bundle-version="8.1.0",
+ org.adempiere.plugin.utils;bundle-version="8.1.0",
+ org.eclipse.equinox.event;bundle-version="1.5.500"
+Service-Component: ProcessFactory.xml,
+ SFModelFactory.xml
+Bundle-Vendor: nTier Software Services
+Export-Package: za.co.ntier.factories,
+ za.co.ntier.model,
+ za.co.ntier.processes,
+ za.co.ntier.shopify
+Bundle-ClassPath: .,
+ com.fasterxml.jackson.core.jackson-core_2.10.0.jar,
+ com.fasterxml.jackson.core.jackson-databind_2.10.0.jar,
+ org.apache.commons.codec_1.13.0.v20200108-0001.jar,
+ org.apache.httpcomponents.httpclient_4.5.10.v20200114-1512.jar,
+ org.apache.httpcomponents.httpcore_4.4.12.v20200108-1212.jar,
+ commons-logging.jar,
+ com.fasterxml.jackson.core.jackson-annotations_2.10.0.jar
+Bundle-Activator: org.adempiere.plugin.utils.AdempiereActivator
+Bundle-ActivationPolicy: lazy
