@@ -7,7 +7,11 @@ Bundle-Version: 1.0.0.qualifier
 Bundle-RequiredExecutionEnvironment: JavaSE-11
 Require-Bundle: org.adempiere.base;bundle-version="8.1.0",
  org.adempiere.plugin.utils;bundle-version="8.1.0",
- org.eclipse.equinox.event;bundle-version="1.5.500"
+ org.eclipse.equinox.event;bundle-version="1.5.500",
+ zk;bundle-version="9.6.4",
+ zul;bundle-version="9.6.4",
+ org.adempiere.ui.zk;bundle-version="11.0.0",
+ org.adempiere.ui;bundle-version="11.0.0"
 Service-Component: ProcessFactory.xml,
  SFModelFactory.xml
 Bundle-Vendor: nTier Software Services

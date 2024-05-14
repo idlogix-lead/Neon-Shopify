@@ -123,7 +123,7 @@ public class Shopify extends SvrProcess {
 					List<?> wcOrders = (List<?>) mapWcOrders.get("orders"); 
 					for (int i = 0; i < wcOrders.size(); i++) {
 						Map<?, ?> order = (Map<?, ?>) wcOrders.get(i);
-						System.out.println(order.get("id"));
+						System.out.println(order.get("name"));
 					}
 					page_info = client.getNextPageLink();
 					builder.removeQuery();
@@ -136,25 +136,19 @@ public class Shopify extends SvrProcess {
 			}while(page_info!=null);
 								
 		}
-		return "Synchronisation from Shopify initiated";
+		return "";
 	}
 	
 	private void processOrder(Map<?,?> order) {
-		if(order.get("fulfillment_status")==null || !(order.get("fulfillment_status").toString().equalsIgnoreCase("fulfilled")))
-		{
-			System.out.println("Print # 1");
-		return;
-		}
+//		if(order.get("fulfillment_status")==null || !(order.get("fulfillment_status").toString().equalsIgnoreCase("fulfilled")))
+//		{
+//			System.out.println("Print # 1");
+//		return;
+//		}
 		boolean isdeleted = false;
-		long id = (long) order.get("id");
-		boolean isExisting = isExistingOrder(String.valueOf(id));
+		String id = (String) order.get("name");
 		MOrder oldOrder = ExistingOrder(String.valueOf(id));
 		if(oldOrder != null ) {
-//			if(order_ID>0) {
-//			MOrder oldOrder;
-			String whereClause = "poreference = ?";
-//			oldOrder = new Query(getCtx(), MOrder.Table_Name, whereClause, null)
-//					.setParameters(new Object[] { Integer.toString(id) }).firstOnly();
 			if(oldOrder!=null) {
 				try {
 					String docStatus = oldOrder.get_ValueAsString(MOrder.COLUMNNAME_DocStatus);
@@ -178,16 +172,10 @@ public class Shopify extends SvrProcess {
 					return;
 				}
 			}
-				
-//			}
-//			else {
-//				System.out.println("Print # 3");
-//				return;
-//			}
 			
 			}
 		
-		System.out.println("Order- " + order.get("id") + ": ");
+		System.out.println("Order- " + order.get("name") + ": ");
 		SfOrder wcOrder = new SfOrder(getCtx(), get_TrxName(), sfDefaults);
 		MOrder morder=wcOrder.createOrder(order);
 		addBufferLog(morder.getC_Order_ID(), morder.getDateOrdered(),
@@ -199,45 +187,37 @@ public class Shopify extends SvrProcess {
 //		wcOrder.filterbundles(lines);
 		for (int j = 0; j < lines.size(); j++) {
 			Map<?, ?> line = (Map<?, ?>) lines.get(j);
-//			wcOrder.createOrderLine(line, order);
+			wcOrder.createOrderLine(line, order);
 			Object name = line.get("name");
 			System.out.println("Name of Product = " + name.toString());
 		}
 //		wcOrder.addShippingCharges(order);
 //		wcOrder.addCoupon(order);
-		Map<String, Object> body = new HashMap<>();
-		List<Map<String, String>> listOfMetaData = new ArrayList();
-		Map<String, String> metaData = new HashMap<>();
-		metaData.put("key", "syncedToIdempiere");
-		metaData.put("value", "yes");
-		listOfMetaData.add(metaData);
-
-		body.put("meta_data", listOfMetaData);
+//		Map<String, Object> body = new HashMap<>();
+//		List<Map<String, String>> listOfMetaData = new ArrayList();
+//		Map<String, String> metaData = new HashMap<>();
+//		metaData.put("key", "syncedToIdempiere");
+//		metaData.put("value", "yes");
+//		listOfMetaData.add(metaData);
+//
+//		body.put("meta_data", listOfMetaData);
 //		Map<?, ?> response = wooCommerce.update(EndpointBaseType.ORDERS.getValue(), id, body);
 //		System.out.println(response.toString());
 		
 	}
 	
-	private boolean isExistingOrder(String id) {
+	private MOrder ExistingOrder(String id) {
 		int c_order_id = 0;
 		String sql = "SELECT c_order_id FROM c_order "
 				+ "WHERE poreference=? AND Docstatus IN ('DR','IN','CO') AND issotrx = 'Y' "
 				+ "ORDER BY c_order_id DESC limit 1";
 		c_order_id = DB.getSQLValue(get_TrxName(), sql,id);
-			return c_order_id>0;
-	}
-	private MOrder ExistingOrder(String id) {
-//		int c_order_id = 0;
-//		String sql = "SELECT c_order_id FROM c_order "
-//				+ "WHERE poreference=? AND Docstatus IN ('DR','IN','CO') AND issotrx = 'Y' "
-//				+ "ORDER BY c_order_id DESC limit 1";
-//		c_order_id = DB.getSQLValue(get_TrxName(), sql,id);
-//			if (c_order_id>0)
-//				return new MOrder(getCtx(),c_order_id,get_TrxName());
+			if (c_order_id>0)
+				return new MOrder(getCtx(),c_order_id,get_TrxName());
 		return null;
 	}
 	private boolean isValidOrderID(String id) {
 		return id.matches("\\d+");
 	}
-
+	
 }
