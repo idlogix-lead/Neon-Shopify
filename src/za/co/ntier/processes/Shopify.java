@@ -140,14 +140,14 @@ public class Shopify extends SvrProcess {
 	}
 	
 	private void processOrder(Map<?,?> order) {
-//		if(order.get("fulfillment_status")==null || !(order.get("fulfillment_status").toString().equalsIgnoreCase("fulfilled")))
-//		{
-//			System.out.println("Print # 1");
-//		return;
-//		}
+		if(order.get("fulfillment_status")==null || !(order.get("fulfillment_status").toString().equalsIgnoreCase("fulfilled")))
+		{
+			System.out.println("Print # 1");
+		return;
+		}
 		boolean isdeleted = false;
 		String id = (String) order.get("name");
-		MOrder oldOrder = ExistingOrder(String.valueOf(id));
+		MOrder oldOrder = ExistingOrder(String.valueOf(id).replace("#", ""));
 		if(oldOrder != null ) {
 			if(oldOrder!=null) {
 				try {

@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.logging.Level;
 
+import org.adempiere.exceptions.AdempiereException;
 import org.compiere.model.MBPartner;
 import org.compiere.model.MBPartnerLocation;
 import org.compiere.model.MLocation;
@@ -38,7 +39,7 @@ public final class SfOrder {
 	private final String trxName;
 	private final int POSTENDERTYPE_ID = 1000000;
 	private final int POS_ORDER = 1000041;
-	String courierCompany="";
+	String courierCode="";
 	// private final int priceList_ID = 101;
 	final String PAYMENT_RULE = "P";
 	// final String PAYMENT_RULE = "P";
@@ -60,13 +61,12 @@ public final class SfOrder {
 		order.setAD_Org_ID((int) sfDefaults.get_Value("ad_org_id"));
 		String poreference = ((String)orderSf.get("name")).replace("#", "");
 		order.setPOReference(poreference);
-		int BP_Id =getCBPartner(orderSf,order);
+		int BP_Id =getCBPartner(orderSf);
 		order.setC_BPartner_ID(BP_Id);
 		int BPLocationId = getBPLocationId(BP_Id);
 		order.setC_BPartner_Location_ID(BPLocationId); 
 		order.setBill_BPartner_ID(BP_Id);
 		order.setBill_Location_ID(BPLocationId);
-		order.set_ValueOfColumn("couriercode", getCN(orderSf));	
 		isTaxInclusive = (orderSf.get("taxes_included").toString().equals("true")) ? true : false;
 		order.setM_PriceList_ID(getPriceList(orderSf));
 		order.setIsSOTrx(true);
@@ -77,10 +77,14 @@ public final class SfOrder {
 		order.setPaymentRule(PAYMENT_RULE);
 		order.setDeliveryRule("F");
 		order.setInvoiceRule("D");
-
-		if (!order.save()) {
-			throw new IllegalStateException("Could not create order");
+		order.set_ValueOfColumn("couriercode", courierCode);	
+		try {
+			order.saveEx();
+		} catch (Exception e) {
+			String errorMsg = "Error in Order #"+order.getPOReference()+" -> "+e.getLocalizedMessage();
+			throw new AdempiereException(errorMsg);
 		}
+		
 		return order;
 	}
 
@@ -132,9 +136,14 @@ public final class SfOrder {
 		orderLine.setQty(BigDecimal.valueOf((long) qty));
 		setPrice(orderLine, line);
 		System.out.println("*********************Unit Price: " + orderLine.getPriceActual());
-		if (!orderLine.save()) {
-//			throw new IllegalStateException("Could not create Order Line");
+		try {
+			orderLine.saveEx();
+		} catch (Exception e) {
+			String errorMsg = "Error in Order #"+orderLine.getC_Order().getPOReference()+" -> "+e.getLocalizedMessage();
+			throw new AdempiereException(errorMsg);
+			
 		}
+		
 	}
 
 	public int getProductId(String name) {
@@ -185,20 +194,8 @@ public final class SfOrder {
 
 
 
-private String getCN(Map<?, ?> orderWc) 
-{
-	
-	
-	String CN ="";
-	for(MetaDataObject obj :metadata) {
-		if(obj.getKey().equalsIgnoreCase(courierCompany))
-			CN= obj.getValue();
-	}
-	
-	
-	return CN;
-}
-private int getCBPartner(Map<?, ?> orderWc,MOrder order) 
+
+private int getCBPartner(Map<?, ?> orderWc) 
 {
 	
 	
@@ -211,12 +208,12 @@ private int getCBPartner(Map<?, ?> orderWc,MOrder order)
 	{
 		Map<?, ?> line = (Map<?, ?>) lines.get(i);
 		companyName = (String)line.get("tracking_company");
+		courierCode = (String)line.get("tracking_number");
 		break;
 	}
 	for(MCourierCompany company:companies) {
 		if(company.getValue().trim().equalsIgnoreCase(companyName))
 			if(company.getC_BPartner_ID()>0) {
-				courierCompany = company.getValue();
 				return company.getC_BPartner_ID();
 			}
 	}
