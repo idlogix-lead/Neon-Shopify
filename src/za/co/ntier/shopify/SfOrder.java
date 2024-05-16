@@ -9,18 +9,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.logging.Level;
 
 import org.adempiere.exceptions.AdempiereException;
-import org.compiere.model.MBPartner;
-import org.compiere.model.MBPartnerLocation;
-import org.compiere.model.MLocation;
 import org.compiere.model.MOrder;
 import org.compiere.model.MOrderLine;
-import org.compiere.model.MUser;
+import org.compiere.model.MProduct;
+import org.compiere.model.MProductPrice;
 import org.compiere.model.PO;
 import org.compiere.model.Query;
-import org.compiere.process.DocAction;
 import org.compiere.util.CLogger;
 import org.compiere.util.DB;
 import org.compiere.util.Env;
@@ -130,7 +126,12 @@ public final class SfOrder {
 	public void createOrderLine(Map<?, ?> line, Map<?, ?> orderSf) {
 		MOrderLine orderLine = new MOrderLine(order);
 		orderLine.setAD_Org_ID(order.getAD_Org_ID());
-		orderLine.setM_Product_ID(getProductId(line.get("product_id").toString()));
+		int product_id = getProductId(line.get("product_id").toString());
+		if(product_id == sfDefaults.get_ValueAsInt("M_Product_ID")) {
+			int newproduct_id = createProduct((String)line.get("product_id"),(String)line.get("title"));
+			product_id = newproduct_id>0?newproduct_id:product_id;
+		}
+		orderLine.setM_Product_ID(product_id);
 		orderLine.setM_Warehouse_ID(order.getM_Warehouse_ID());
 		long qty = ((Number) line.get("quantity")).longValue();
 		orderLine.setQty(BigDecimal.valueOf((long) qty));
@@ -232,4 +233,29 @@ private void setPrice(MOrderLine orderLine,Map<?, ?> line) {
 	orderLine.setPrice(new BigDecimal(priceActual)); 
 	orderLine.setDiscount();
 }
+
+ int createProduct (String id,String name)
+ {
+	 MProduct product = new MProduct(ctx, 0, null);
+	 product.setValue(id);
+	 product.setName(name);
+	 product.setC_TaxCategory_ID(1000000);
+	 product.setM_Product_Category_ID(1000000);
+	 product.setProductType("I");
+	 product.setC_UOM_ID(100);
+	 product.setIsStocked(true);
+	 product.setIsSold(true);
+	 product.setIsPurchased(true);
+	 product.setIsSelfService(true);
+	 try {
+		 product.saveEx();
+		 MProductPrice price = new MProductPrice(ctx, 0, null);
+		 price.setM_PriceList_Version_ID(sfDefaults.get_ValueAsInt("Local_Incl_PriceList_ID"));
+		 price.saveEx();
+	} catch (Exception e) {
+		// TODO: handle exception
+		return 0;
+	}
+	 return product.getM_Product_ID();
+ }
 }
