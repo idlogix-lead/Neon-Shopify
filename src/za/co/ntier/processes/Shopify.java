@@ -21,7 +21,7 @@ import org.compiere.process.ProcessInfoParameter;
 import org.compiere.process.SvrProcess;
 import org.compiere.util.DB;
 import org.compiere.util.Env;
-
+import com.google.gson.Gson;
 import com.icoderman.shopify.ApiVersionType;
 import com.icoderman.shopify.DefaultHttpClient;
 import com.icoderman.shopify.EndpointBaseType;
@@ -96,7 +96,10 @@ public class Shopify extends SvrProcess {
 		
 		OAuthConfig config = new OAuthConfig((String) sfDefaults.get_Value("url"),
 				(String) sfDefaults.get_Value("consumerkey"), (String) sfDefaults.get_Value("consumersecret"));
-		shopify = new ShopifyAPI(config, ApiVersionType.V1);		
+		shopify = new ShopifyAPI(config, ApiVersionType.V1);
+		
+
+        List<String> fetchedOrders = new ArrayList<>();
 		
 		if(order_ID.length()>0) {
 			if(!isValidOrderID(order_ID))
@@ -121,10 +124,35 @@ public class Shopify extends SvrProcess {
 					page_info=null;
 					LinkedHashMap<?, ?> mapWcOrders = client.getAll(builder);
 					List<?> wcOrders = (List<?>) mapWcOrders.get("orders"); 
-					for (int i = 0; i < wcOrders.size(); i++) {
-						Map<?, ?> order = (Map<?, ?>) wcOrders.get(i);
-						System.out.println(order.get("name"));
-					}
+//					for (int i = 0; i < wcOrders.size(); i++) {
+//						Map<?, ?> order = (Map<?, ?>) wcOrders.get(i);
+//						System.out.println(order.get("name"));
+//					}
+					 for (Object wcOrderObj : wcOrders) {
+		                    // Initialize SfOrder
+		                    SfOrder wcOrder = new SfOrder(getCtx(), get_TrxName(), sfDefaults);
+		                    Map<?, ?> order = (Map<?, ?>) wcOrderObj;
+
+		                    // Create MOrder object and add to fetchedOrders
+		                    MOrder morder = wcOrder.createOrder(order);
+		                    addBufferLog(morder.getC_Order_ID(), morder.getDateOrdered(),
+		                            null, ("Updated Order ---------------->" ) + morder.getDocumentNo(),
+		                            MOrder.Table_ID, morder.getC_Order_ID());
+
+		                    morder.saveEx();
+
+		                    // Iterate through each order line
+		                    List<?> lines = (List<?>) order.get("line_items");
+		                    for (int j = 0; j < lines.size(); j++) {
+		                        Map<?, ?> line = (Map<?, ?>) lines.get(j);
+		                        wcOrder.createOrderLine(line, order);  // Assuming wcOrder has createOrderLine method
+		                        Object name = line.get("name");
+		                        System.out.println("Name of Product = " + name.toString());
+		                    }
+
+		                    // Add order information to fetchedOrders list
+		                    fetchedOrders.add(morder.toString());  // Ensure morder.toString() provides the desired order information
+		                }
 					page_info = client.getNextPageLink();
 					builder.removeQuery();
 					if(page_info!=null && page_info.length()!=0)
@@ -136,15 +164,19 @@ public class Shopify extends SvrProcess {
 			}while(page_info!=null);
 								
 		}
-		return "";
+		  Gson gson = new Gson();
+	        return gson.toJson(fetchedOrders);
 	}
 	
 	private void processOrder(Map<?,?> order) {
-		if(order.get("fulfillment_status")==null || !(order.get("fulfillment_status").toString().equalsIgnoreCase("fulfilled")))
-		{
-			System.out.println("Print # 1");
-		return;
-		}
+		 String fulfillmentStatus = (String) order.get("fulfillment_status");
+
+		    if (fulfillmentStatus == null || !fulfillmentStatus.equalsIgnoreCase("fulfilled")) {
+		        String orderId = (String) order.get("name");
+		        String message = (fulfillmentStatus == null) ? "Order status is unfulfilled" : "Order is not fulfilled";
+		        addBufferLog(0, null, null, "Order " + orderId + ": " + message, MOrder.Table_ID, 0);
+		        return;
+		    }
 		boolean isdeleted = false;
 		String id = (String) order.get("name");
 		MOrder oldOrder = ExistingOrder(String.valueOf(id).replace("#", ""));
@@ -182,6 +214,8 @@ public class Shopify extends SvrProcess {
 				null, (isdeleted?"Updated Order ---------------->":"")+ morder.getDocumentNo(),
 				MOrder.Table_ID, morder.getC_Order_ID());
 		
+		morder.saveEx();
+
 		// Iterate through each order Line
 		List<?> lines = (List<?>) order.get("line_items");
 //		wcOrder.filterbundles(lines);
@@ -196,7 +230,6 @@ public class Shopify extends SvrProcess {
 //		Map<String, Object> body = new HashMap<>();
 //		List<Map<String, String>> listOfMetaData = new ArrayList();
 //		Map<String, String> metaData = new HashMap<>();
-//		metaData.put("key", "syncedToIdempiere");
 //		metaData.put("value", "yes");
 //		listOfMetaData.add(metaData);
 //

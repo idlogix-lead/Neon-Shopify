@@ -11,7 +11,8 @@ Require-Bundle: org.adempiere.base;bundle-version="8.1.0",
  zk;bundle-version="9.6.4",
  zul;bundle-version="9.6.4",
  org.adempiere.ui.zk;bundle-version="11.0.0",
- org.adempiere.ui;bundle-version="11.0.0"
+ org.adempiere.ui;bundle-version="11.0.0",
+ com.google.gson;bundle-version="2.9.0"
 Service-Component: ProcessFactory.xml,SFModelFactory.xml,
  ShopifyFormFactory.xml
 Bundle-Vendor: nTier Software Services
@@ -29,3 +30,4 @@ Bundle-ClassPath: .,
  com.fasterxml.jackson.core.jackson-annotations_2.10.0.jar
 Bundle-Activator: org.adempiere.plugin.utils.AdempiereActivator
 Bundle-ActivationPolicy: lazy
+Import-Package: com.google.gson

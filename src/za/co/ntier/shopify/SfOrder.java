@@ -17,6 +17,8 @@ import org.compiere.model.MBPartnerLocation;
 import org.compiere.model.MLocation;
 import org.compiere.model.MOrder;
 import org.compiere.model.MOrderLine;
+import org.compiere.model.MPriceList;
+import org.compiere.model.MProduct;
 import org.compiere.model.MUser;
 import org.compiere.model.PO;
 import org.compiere.model.Query;
@@ -38,7 +40,7 @@ public final class SfOrder {
 	private final Properties ctx;
 	private final String trxName;
 	private final int POSTENDERTYPE_ID = 1000000;
-	private final int POS_ORDER = 1000041;
+	private final int CREDIT_ORDER = 1000033;
 	String courierCode="";
 	// private final int priceList_ID = 101;
 	final String PAYMENT_RULE = "P";
@@ -73,7 +75,7 @@ public final class SfOrder {
 		order.setM_Warehouse_ID((int) sfDefaults.get_Value("m_warehouse_id"));
 		order.setDateOrdered(getDate(orderSf));
 		order.setDateAcct(getDate(orderSf));
-		order.setC_DocTypeTarget_ID(POS_ORDER);
+		order.setC_DocTypeTarget_ID(CREDIT_ORDER);
 		order.setPaymentRule(PAYMENT_RULE);
 		order.setDeliveryRule("F");
 		order.setInvoiceRule("D");
@@ -131,6 +133,7 @@ public final class SfOrder {
 		MOrderLine orderLine = new MOrderLine(order);
 		orderLine.setAD_Org_ID(order.getAD_Org_ID());
 		orderLine.setM_Product_ID(getProductId(line.get("product_id").toString()));
+		orderLine.setC_Tax_ID(1000001);
 		orderLine.setM_Warehouse_ID(order.getM_Warehouse_ID());
 		long qty = ((Number) line.get("quantity")).longValue();
 		orderLine.setQty(BigDecimal.valueOf((long) qty));
@@ -145,6 +148,8 @@ public final class SfOrder {
 		}
 		
 	}
+	
+	
 
 	public int getProductId(String name) {
 		int m_Product_ID = DB.getSQLValue(trxName, "select m_product_id " + "from m_product mp " + "where value like ?",
