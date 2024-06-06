@@ -27,7 +27,7 @@ public interface Shopify {
      * @param id           id of WooCommerce entity
      * @return Retrieved WooCommerce entity
      */
-    Map<?, ?> get(String endpointBase, String id);
+     Map<?, ?> get(String endpointBase, String id) ;
 
     /**
      * Retrieves all WooCommerce entities with request parameters
