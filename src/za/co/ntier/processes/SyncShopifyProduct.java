@@ -225,7 +225,7 @@ public class SyncShopifyProduct  extends SvrProcess {
 		        	 Product.set_ValueOfColumn("m_parent_product_id", myppid);
 		        	 Product.setAD_Org_ID(getAD_Client_ID());
 		        	 Product.setC_UOM_ID(100);
-		        	Product.setC_TaxCategory_ID(1000000);
+		        	 Product.setC_TaxCategory_ID(1000000);
 		        	 Product.setM_Product_Category_ID(1000000);
 		        	 Product.setIsPurchased(true);
 		        	 Product.setIsSold(true);
@@ -240,7 +240,10 @@ public class SyncShopifyProduct  extends SvrProcess {
 		 
 		 private void updateProduct(MParentProduct pp, String productName, String variantName) {
 		        try {
+		        	int parent_id=pp.get_ID();
 		          pp.setName(variantName + "-" + productName);
+//		          pp.set_ValueOfColumn("m_parent_product_id", parent_id);
+		         
 		   		  pp.save();
 		   		
 		        } catch (Exception e) {

@@ -55,10 +55,6 @@ public class PackingForm  extends ADForm {
 	@Override
 	protected void initForm() {
 		
-
-
-		
-		
 		
 		// TODO Auto-generated method stub
 		courierCode.setPlaceholder("Scan CN#");

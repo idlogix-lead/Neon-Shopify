@@ -58,7 +58,7 @@ public interface Shopify {
      * @param object       Map with updated properties
      * @return updated WooCommerce entity
      */
-    Map<?, ?> update(String endpointBase, int id, Map<String, Object> object);
+    Map<?, ?> update(String endpointBase, String id, Map<String, Object> object);
 
     /**
      * Deletes WooCommerce entity
