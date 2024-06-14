@@ -98,7 +98,6 @@ public class DefaultHttpClient implements HttpClient {
 			uriBuilder.addParameters(postParameters);
 			httpPut = new HttpPut(uriBuilder.build());
 			httpPut.setHeader(CONTENT_TYPE, APPLICATION_JSON);
-			httpPut.setHeader("X-Shopify-Access-Token", "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");
 			return postEntity(object, httpPut);
 		} catch (URISyntaxException e) {
 			throw new RuntimeException(e);
