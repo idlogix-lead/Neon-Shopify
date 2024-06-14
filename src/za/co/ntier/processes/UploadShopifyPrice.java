@@ -46,6 +46,7 @@ public class UploadShopifyPrice  extends SvrProcess {
 			String variantID = product.getValue();
 			BigDecimal listPrice = price.getPriceList();
 			BigDecimal StdPrice = price.getPriceStd();
+			
 		
 			 try {
 				 UpdateVariantPriceOnShopify(variantID, listPrice);

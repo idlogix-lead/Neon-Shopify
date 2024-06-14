@@ -20,6 +20,7 @@ public class ShopifyFactory implements IProcessFactory{
             return new SyncShopifyProductPrice();
         }else if (className.equals("za.co.ntier.processes.UploadShopifyPrice")) {
             return new UploadShopifyPrice();
+            
         } else {
             return null;
         }

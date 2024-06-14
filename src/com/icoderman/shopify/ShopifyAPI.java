@@ -16,6 +16,7 @@ public class ShopifyAPI implements Shopify {
     private static final String API_URL_GET_ENTITY_FORMAT = "%s/admin/%s/%s.json";
     private static final String URL_SECURED_FORMAT = "%s?%s";
 
+    
     private HttpClient client;
     private OAuthConfig config;
     private String apiVersion;

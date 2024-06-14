@@ -18,6 +18,7 @@ public interface Shopify {
      * @param object       Map with entity properties and values
      * @return Map with created entity
      */
+	
     Map<?, ?> create(String endpointBase, Map<String, Object> object);
 
     /**

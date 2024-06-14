@@ -53,7 +53,6 @@ public class SyncShopifyProductPrice  extends SvrProcess{
 	@Override
 	protected String doIt() throws Exception {
 		
-	
 		syncVariantsWithProducts();
 		return null;
 	}
