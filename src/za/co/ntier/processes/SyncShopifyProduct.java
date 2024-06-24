@@ -73,7 +73,7 @@ public class SyncShopifyProduct  extends SvrProcess {
 		if (Product_ID != null && !Product_ID.isEmpty()) {
 	        // Fetch and process a single product
 	        fetchAndProcessSingleProduct(Product_ID);
-	        syncVariantsWithProducts();
+//	        syncVariantsWithProducts();
 	        return "Single product fetched and processed successfully.";
 	    } else {
 	        // Fetch and process all products
@@ -101,17 +101,17 @@ public class SyncShopifyProduct  extends SvrProcess {
                     Map<?, ?> product = (Map<?, ?>) wcProductObj;
                     String productId = String.valueOf(product.get("id"));
                     String productName = String.valueOf(product.get("title")); 
+    	            String description = String.valueOf(product.get("body_html"));
                   
                           MParentProduct parentProduct = productExistsInParentProduct(productId);
                           if (parentProduct != null) {
-                        	  updateParentProduct(parentProduct,productName);
+                        	  updateParentProduct(parentProduct,productName,description);
                       
                           } else {
                                    
-                        	  CreateParentProduct(productId, productName);
+                        	  CreateParentProduct(productId, productName,description);
                           }     
                           }
-
                 page_info = client.getNextPageLink();
                 builder.removeQuery();
                 if (page_info != null && !page_info.isEmpty()) {
@@ -132,15 +132,20 @@ public class SyncShopifyProduct  extends SvrProcess {
 	        if (mapWcProduct != null && mapWcProduct.containsKey("product")) {
 	            Map<?, ?> product = (Map<?, ?>) mapWcProduct.get("product");
 	            String productName = String.valueOf(product.get("title"));
-
+	            String description = String.valueOf(product.get("body_html"));
+//	            if (description.length() > 255) {
+//	                description = description.substring(0, 255);
+//	            }
 	            MParentProduct parentProduct = productExistsInParentProduct(productId);
 	            if (parentProduct != null) {
-	                updateParentProduct(parentProduct, productName);
+	                updateParentProduct(parentProduct, productName,description);
 	                log.log(Level.SEVERE, "Exist All Ready " + productName);
 	            } else {
-	                CreateParentProduct(productId, productName);
+	                parentProduct = CreateParentProduct(productId, productName,description);
 	                log.log(Level.SEVERE, "not Exist All Ready " + productName);
 	            }
+	            if(parentProduct!=null)
+	            	createProductsForSingleProduct(parentProduct, product);
 	        } else {
 	            throw new RuntimeException("Product with ID " + productId + " not found.");
 	        }
@@ -216,6 +221,24 @@ public class SyncShopifyProduct  extends SvrProcess {
 		    }
 		    return variantsList;
 		}
+	  
+	  private void createProductsForSingleProduct(MParentProduct parentProduct, Map<?, ?> product) {
+	        List<?> variants = (List<?>) product.get("variants");
+	        String ProductId=  parentProduct.getValue();
+	        String ProductName = parentProduct.getName();
+	        Integer Product_Id = parentProduct.get_ID();
+	        for (Object variantObj : variants) {
+	            Map<?, ?> variant = (Map<?, ?>) variantObj;
+	            String variantId = String.valueOf(variant.get("id"));
+	            String variantName = String.valueOf(variant.get("title"));
+	            if (variantExistsInMProduct(variantId)) {
+	                updateProduct(parentProduct, product.get("title").toString(), variantName);
+	                log.warning(variantName + "updated");
+	            } else {
+	                CreateProduct(Product_Id, ProductId, variantId, variantName, ProductName);
+	                log.warning(variantName + "created");            }
+	        }
+	    }
 
 		 private void CreateProduct(int myppid,String productId,String VariantId, String variantName, String productName) {
 		        try {
@@ -252,7 +275,7 @@ public class SyncShopifyProduct  extends SvrProcess {
 		    }
 		 
 		 
-	 private void CreateParentProduct(String productId, String productName) {
+	 private MParentProduct CreateParentProduct(String productId, String productName,String description) {
 	        try {
 	        	 MParentProduct parentProduct = new MParentProduct(getCtx(), 0, get_TrxName());
 	                parentProduct.setValue(productId);
@@ -260,17 +283,21 @@ public class SyncShopifyProduct  extends SvrProcess {
 	                parentProduct.setAD_Org_ID(getAD_Client_ID());
 	                parentProduct.setIsActive(true);
 	                parentProduct.setM_Product_Category_ID(1000000);
+	                parentProduct.setDescription(description);
 	                parentProduct.saveEx();
+	                return parentProduct;
 	             
 	        } catch (Exception e) {
 	        	  e.printStackTrace(); 
 	            System.err.println("Error Creating product: " + e.getMessage());
 	        }
+	        return null;
 	    }
 	 
-	  private void updateParentProduct(MParentProduct pp, String productName) {
+	  private void updateParentProduct(MParentProduct pp, String productName, String description) {
 	        try {
 	          pp.setName(productName);
+	          pp.setDescription(description);
 	   		  pp.save();
 	   		
 	        } catch (Exception e) {

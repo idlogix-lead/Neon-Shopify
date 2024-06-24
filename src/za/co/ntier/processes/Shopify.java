@@ -11,6 +11,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TimeZone;
 import java.util.logging.Level;
 
 import org.apache.http.client.utils.URIBuilder;
@@ -71,14 +72,13 @@ public class Shopify extends SvrProcess {
 
 	@Override
 	protected String doIt() throws Exception {
-		
-		SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
+		SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX");
+	    TimeZone timeZone = TimeZone.getTimeZone("GMT+05:00");
+        dateFormat.setTimeZone(timeZone);
 		StartDate = Timestamp.valueOf(StartDate.toLocalDateTime().withHour(00).withMinute(00).withSecond(00));
 		EndDate = Timestamp.valueOf(EndDate.toLocalDateTime().withHour(23).withMinute(59).withSecond(59));
 		String after = dateFormat.format(StartDate);
 		String before = dateFormat.format(EndDate);
-		
-		
 		
 		String whereClause = " isactive = 'Y' AND AD_Client_ID = ?";
 		sfDefaults = new Query(getCtx(), X_zz_shopify.Table_Name, whereClause, null)
