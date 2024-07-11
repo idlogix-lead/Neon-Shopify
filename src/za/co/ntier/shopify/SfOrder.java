@@ -4,7 +4,10 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -92,6 +95,7 @@ public final class SfOrder {
 		order.setInvoiceRule("D");
 		order.set_ValueOfColumn("couriercode", courierCode);	
 		try {
+			System.out.println("Date ordered: " + order.getDateOrdered());
 			order.saveEx();
 		} catch (Exception e) {
 			String errorMsg = "Error in Order #"+order.getPOReference()+" -> "+e.getLocalizedMessage();
@@ -102,11 +106,34 @@ public final class SfOrder {
 	}
 
 	private java.sql.Timestamp getDate(Map<?, ?> orderSf) {
-		DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
-		String date = orderSf.get("created_at").toString();
-		OffsetDateTime odt = OffsetDateTime.parse(date, dateTimeFormatter);
-		Instant instant = odt.toInstant();
-		return java.sql.Timestamp.from(instant);
+//		DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
+//		
+//		String date = orderSf.get("created_at").toString();
+//		OffsetDateTime odt = OffsetDateTime.parse(date, dateTimeFormatter);
+//		Instant instant = odt.toInstant();
+//		return java.sql.Timestamp.from(instant);
+		String date = (String) orderSf.get("created_at");
+	    if (date == null) {
+	        return new java.sql.Timestamp(System.currentTimeMillis());
+	    }
+	    
+	    if (date.contains("+")) {
+	        date = date.substring(0, date.indexOf('+'));
+	    } else if (date.contains("-")) {
+	        date = date.substring(0, date.lastIndexOf('-'));
+	    }
+	
+	    LocalDateTime localDateTime = LocalDateTime.parse(date, DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+	    
+	    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
+	    String formattedDate = localDateTime.format(formatter);
+	    LocalDateTime parsedLocalDateTime = LocalDateTime.parse(formattedDate, formatter);
+	    
+	    // Convert to java.sql.Timestamp
+	    ZoneId zoneId = ZoneId.of("Asia/Karachi");
+	    Timestamp timestamp = Timestamp.valueOf(parsedLocalDateTime.atZone(zoneId).toLocalDateTime());
+	    
+	    return timestamp;
 	}
 
 	private int getPriceList(Map<?, ?> orderSf) {
@@ -217,27 +244,7 @@ void setLinePricing(MOrderLine oline,Map<?, ?> line) {
 	        System.out.println("Price list version not found for order: " + order.getDocumentNo());
 	    }
 }
-	
-	
-	
-     
-	
-//	private int getProdId(String variantid) {
-//		if (prod is present against this variant)
-//			return id;
-//		else
-//			return -1;
-//	}
-	
-	
-//	private int createnewProduct(String variantid,String name) {
-//		fetch variant info
-//		create erp product
-//		create prices
-//		return id of newly created product
-//	}
-	
-	
+		
 	private String getProductID(Map<?, ?> line) {
 		Object prodID = line.get("variant_id");
 		if(prodID == null) 
@@ -340,7 +347,7 @@ void setLinePricing(MOrderLine oline,Map<?, ?> line) {
 		orderLine.setAD_Org_ID(order.getAD_Org_ID());
 		orderLine.setC_Charge_ID((int) sfDefaults.get_Value("c_charge_id"));
 		orderLine.setM_Warehouse_ID(order.getM_Warehouse_ID());
-		orderLine.setC_Tax_ID(getTaxRate(orderWc));
+		orderLine.setC_Tax_ID(1000001);
 		orderLine.setQty(BigDecimal.ONE);
 		orderLine.setPrice(shippingCost);
 		System.out.println("*********************Shipping Cost: " + shippingCost);
@@ -363,7 +370,7 @@ void setLinePricing(MOrderLine oline,Map<?, ?> line) {
 	public BigDecimal getShippingCost(Map<?, ?> orderWc) {
 		List<?> shippingLines = (List<?>) orderWc.get("shipping_lines");
 		Map<?, ?> shippingLine = (Map<?, ?>) shippingLines.get(0);
-		Double total = Double.parseDouble((String) shippingLine.get("price"));
+		Double total = Double.parseDouble((String) shippingLine.get("discounted_price"));
 		BigDecimal shippingCost = BigDecimal.valueOf((Double) total);
 		return (shippingCost.setScale(4, RoundingMode.HALF_EVEN));
 	}

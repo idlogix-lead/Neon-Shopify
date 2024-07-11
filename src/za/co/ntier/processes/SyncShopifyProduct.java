@@ -4,9 +4,11 @@ import java.math.BigDecimal;
 import java.net.URISyntaxException;
 import java.sql.PreparedStatement;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.logging.Level;
 
 import org.apache.http.client.utils.URIBuilder;
@@ -71,15 +73,13 @@ public class SyncShopifyProduct  extends SvrProcess {
 		shopify = new ShopifyAPI(config, ApiVersionType.V1);
 		
 		if (Product_ID != null && !Product_ID.isEmpty()) {
-	        // Fetch and process a single product
+	   
 	        fetchAndProcessSingleProduct(Product_ID);
-//	        syncVariantsWithProducts();
 	        return "Single product fetched and processed successfully.";
 	    } else {
-	        // Fetch and process all products
 	        int totalProducts = fetchProductsIds(client, builder);
 	        System.out.println("Total number of products fetched: " + totalProducts);
-	        syncVariantsWithProducts();
+	        syncVariantsWithProducts(client, builder);
 	        return "Products fetched successfully. Total: " + totalProducts;
 	    }
 //		 int totalProducts = fetchProductsIds(client, builder);
@@ -154,8 +154,8 @@ public class SyncShopifyProduct  extends SvrProcess {
 	    }
 	}
 	
-	private void syncVariantsWithProducts() throws Exception {
-        List<MParentProduct> parentProducts = getAllParentProducts();
+	private void syncVariantsWithProducts(DefaultHttpClient client, URIBuilder builder) throws Exception {
+        List<MParentProduct> parentProducts = getAllParentProducts(client, builder);
         for (MParentProduct parentProduct : parentProducts) {
             String productId = parentProduct.getValue();
             String productName = parentProduct.getName(); 
@@ -173,10 +173,43 @@ public class SyncShopifyProduct  extends SvrProcess {
         }
     }
 	
-	 private List<MParentProduct> getAllParentProducts() {
-	        List<MParentProduct> parentProducts = new Query(getCtx(), MParentProduct.Table_Name, "IsActive='Y'", get_TrxName())
-	                .list();
-	        return parentProducts;
+	 private List<MParentProduct> getAllParentProducts(DefaultHttpClient client, URIBuilder builder) {
+//	        List<MParentProduct> parentProducts = new Query(getCtx(), MParentProduct.Table_Name, "IsActive='Y'", get_TrxName())
+//	                .list();
+//	        return parentProducts;
+		 List<MParentProduct> parentProducts = new Query(getCtx(), MParentProduct.Table_Name, "IsActive='Y'", get_TrxName()).list();
+		 
+		 List<MParentProduct> filteredParentProducts = new ArrayList<>();
+		 List<String> wcProductIds = new ArrayList<>();
+		 String page_info = null;
+		 
+		 
+	        do {
+		 LinkedHashMap<?, ?> mapWcProducts = client.getAll(builder);
+         List<?> wcProducts = (List<?>) mapWcProducts.get("products");
+
+		    for (Object wcProduct : wcProducts) {
+		        if (wcProduct instanceof Map) {
+		            Object productId = ((Map<?, ?>) wcProduct).get("id");
+		            if (productId != null) {
+		                wcProductIds.add(productId.toString());
+		            }
+		        }
+		    }
+		    page_info = client.getNextPageLink();
+            builder.removeQuery();
+            if (page_info != null && !page_info.isEmpty()) {
+                builder.addParameter("page_info", page_info);
+            }
+		 } 
+		 while (page_info != null);
+		    for (MParentProduct parentProduct : parentProducts) {
+		        if (wcProductIds.contains(parentProduct.getValue())) {
+		            filteredParentProducts.add(parentProduct);
+		        }
+		    }
+
+		    return filteredParentProducts;
 	    }
 	 
 	 
@@ -246,10 +279,11 @@ public class SyncShopifyProduct  extends SvrProcess {
 		        	 Product.setValue(VariantId);
 		        	 Product.setName(productName + " - " + variantName);
 		        	 Product.set_ValueOfColumn("m_parent_product_id", myppid);
-		        	 Product.setAD_Org_ID(getAD_Client_ID());
+		        	 Product.setAD_Org_ID(Env.getAD_Org_ID(getCtx()));
 		        	 Product.setC_UOM_ID(100);
 		        	 Product.setC_TaxCategory_ID(1000000);
 		        	 Product.setM_Product_Category_ID(1000000);
+		        	 Product.setM_AttributeSet_ID(1000000);
 		        	 Product.setIsPurchased(true);
 		        	 Product.setIsSold(true);
 		        	 Product.setIsStocked(true);
@@ -263,11 +297,12 @@ public class SyncShopifyProduct  extends SvrProcess {
 		 
 		 private void updateProduct(MParentProduct pp, String productName, String variantName) {
 		        try {
-		        	int parent_id=pp.get_ID();
-		          pp.setName(variantName + "-" + productName);
-//		          pp.set_ValueOfColumn("m_parent_product_id", parent_id);
-		         
-		   		  pp.save();
+		        	 int productId = pp.get_ID(); 
+		             MProduct product = getProductByParentProductId(productId);
+		             product.setAD_Org_ID(Env.getAD_Org_ID(getCtx()));    
+		             product.setName(productName + "-" + variantName);
+		             product.setM_AttributeSet_ID(1000000);
+		             product.save();
 		   		
 		        } catch (Exception e) {
 		            System.err.println("Error updating product: " + e.getMessage());
@@ -280,7 +315,7 @@ public class SyncShopifyProduct  extends SvrProcess {
 	        	 MParentProduct parentProduct = new MParentProduct(getCtx(), 0, get_TrxName());
 	                parentProduct.setValue(productId);
 	                parentProduct.setName(productName);
-	                parentProduct.setAD_Org_ID(getAD_Client_ID());
+	                parentProduct.setAD_Org_ID(Env.getAD_Org_ID(getCtx()));
 	                parentProduct.setIsActive(true);
 	                parentProduct.setM_Product_Category_ID(1000000);
 	                parentProduct.setDescription(description);
@@ -296,7 +331,8 @@ public class SyncShopifyProduct  extends SvrProcess {
 	 
 	  private void updateParentProduct(MParentProduct pp, String productName, String description) {
 	        try {
-	          pp.setName(productName);
+	        	pp.setAD_Org_ID(Env.getAD_Org_ID(getCtx()));        
+	        pp.setName(productName);
 	          pp.setDescription(description);
 	   		  pp.save();
 	   		
@@ -305,6 +341,13 @@ public class SyncShopifyProduct  extends SvrProcess {
 	        }
 	    }
 	
+	  
+	  private MProduct getProductByParentProductId(int parentProductId) {
+		    String whereClause = "m_parent_product_id = ?";
+		    return new Query(getCtx(), MProduct.Table_Name, whereClause, null)
+		            .setParameters(parentProductId)
+		            .first();
+		}
 	
 	private MParentProduct productExistsInParentProduct(String productId) {
 		int m_parent_product_id= 0;

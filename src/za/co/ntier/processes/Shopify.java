@@ -62,23 +62,23 @@ public class Shopify extends SvrProcess {
 			else if (name.equals("EndDate"))
 				EndDate = para[i].getParameterAsTimestamp();
 			else
-				log.log(Level.SEVERE, "Unknown Parameter: " + name);
-			
+				log.log(Level.SEVERE, "Unknown Parameter: " + name);	
 		}
-		
-		
-		
 	}
 
 	@Override
 	protected String doIt() throws Exception {
-		SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX");
-	    TimeZone timeZone = TimeZone.getTimeZone("GMT+05:00");
-        dateFormat.setTimeZone(timeZone);
+		SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss+05:00");
+//		   TimeZone timeZone = TimeZone.getTimeZone("Asia/Karachi");
+//	        dateFormat.setTimeZone(timeZone);
+		
 		StartDate = Timestamp.valueOf(StartDate.toLocalDateTime().withHour(00).withMinute(00).withSecond(00));
 		EndDate = Timestamp.valueOf(EndDate.toLocalDateTime().withHour(23).withMinute(59).withSecond(59));
 		String after = dateFormat.format(StartDate);
 		String before = dateFormat.format(EndDate);
+	
+		System.out.println("After Date  " + after);
+		System.out.println("Before Date " + before);
 		
 		String whereClause = " isactive = 'Y' AND AD_Client_ID = ?";
 		sfDefaults = new Query(getCtx(), X_zz_shopify.Table_Name, whereClause, null)
@@ -141,6 +141,7 @@ public class Shopify extends SvrProcess {
 			                	 addBufferLog(existingOrder.getC_Order_ID(), existingOrder.getDateOrdered(),
 				                            null, "Existing Order : " + existingOrder.getDocumentNo(),
 				                            MOrder.Table_ID, existingOrder.getC_Order_ID());
+			                	
 			                    System.out.println("Order already exists in the database: " + existingOrder.getDocumentNo());
 			                
 			                } else {
@@ -152,8 +153,7 @@ public class Shopify extends SvrProcess {
 			                        Map<?, ?> line = (Map<?, ?>) lineObj;
 			                        wcOrder.createOrderLine(line, order);
 			                    }
-			                    
-			                    addBufferLog(morder.getC_Order_ID(), morder.getDateOrdered(),
+			                	addBufferLog(morder.getC_Order_ID(), morder.getDateOrdered(),
 			                            null, "New Order created: " + morder.getDocumentNo(),
 			                            MOrder.Table_ID, morder.getC_Order_ID());
 			                }
@@ -223,7 +223,6 @@ public class Shopify extends SvrProcess {
 		
 		morder.saveEx();
 
-		// Iterate through each order Line
 		List<?> lines = (List<?>) order.get("line_items");
 //		wcOrder.filterbundles(lines);
 		for (int j = 0; j < lines.size(); j++) {
@@ -235,42 +234,9 @@ public class Shopify extends SvrProcess {
 
 		}
 		
-//		   List<?> variantline = (List<?>) order.get("line_items");
-//		    for (int j = 0; j < variantline.size(); j++) {
-//		        Map<?, ?> line = (Map<?, ?>) variantline.get(j);
-//		        Object variantIdObj = line.get("variant_id");
-//		        if (variantIdObj != null) {
-//		            String variantId = variantIdObj.toString();
-//		            // Construct the URL for fetching the variant information
-//		            String variantUrl = sfDefaults.get_Value("url") + "/admin/api/2024-01/variants/" + variantId + ".json";
-//		            try {
-//		                // Make an API call to Shopify to retrieve the variant information
-//		                Map<?, ?> variantResponse = shopify.get(EndpointBaseType.VARIANT.getValue(), variantId);
-//		                // Parse the response to extract the price of the variant
-//		                Map<?, ?> variantData = (Map<?, ?>) variantResponse.get("variant");
-//		                Object variantPriceObj = variantData.get("price");
-//		                if (variantPriceObj != null) {
-//		                    double variantPrice = Double.parseDouble(variantPriceObj.toString());
-//		                    // Use or store the variant price as needed
-//		                    System.out.println("Variant Price: " + variantPrice);
-//		                    System.out.println("Variant Price: " + variantData);
-//		                    
-//		                    Object productIdObj = line.get("product_id");
-//		                    if (productIdObj != null) {
-//		                        int m_Product_ID = Integer.parseInt(productIdObj.toString());
-//		                        wcOrder.createProductPrice(m_Product_ID, line, variantPrice);
-//		                    } else {
-//		                        System.err.println("Product ID not found for line item: " + line);
-//		                    }
-//		                }
-//		            } catch (Exception e) {
-//		                e.printStackTrace();
-//		                // Handle any exceptions
-//		            
-//		            }}
+		wcOrder.createShippingCharge(order);
 		}
 		
-//		wcOrder.addShippingCharges(order);
 //		wcOrder.addCoupon(order);
 //		Map<String, Object> body = new HashMap<>();
 //		List<Map<String, String>> listOfMetaData = new ArrayList();
@@ -281,36 +247,6 @@ public class Shopify extends SvrProcess {
 //		body.put("meta_data", listOfMetaData);
 //		Map<?, ?> response = wooCommerce.update(EndpointBaseType.ORDERS.getValue(), id, body);
 //		System.out.println(response.toString());
-		
-//	public Map<Long, Double> fetchVariantPrices(Map<?, ?> orderSf) {
-//	    Map<Long, Double> variantPrices = new HashMap<>();
-//	    List<?> variantline = (List<?>) orderSf.get("line_items");
-//	    for (int j = 0; j < variantline.size(); j++) {
-//	        Map<?, ?> line = (Map<?, ?>) variantline.get(j);
-//	        Object variantIdObj = line.get("variant_id");
-//	        if (variantIdObj != null) {
-//	            String variantId = variantIdObj.toString();
-//	            String variantUrl = sfDefaults.get_Value("url") + "/admin/api/2024-01/variants/" + variantId + ".json";
-//	            try {
-//	                Map<?, ?> variantResponse = shopify.get(EndpointBaseType.VARIANT.getValue(), variantId);
-//	                Map<?, ?> variantData = (Map<?, ?>) variantResponse.get("variant");
-//	                Object variantPriceObj = variantData.get("price");
-//	                if (variantPriceObj != null) {
-//	                    double variantPrice = Double.parseDouble(variantPriceObj.toString());
-//	                    variantPrices.put(Long.parseLong(variantId), variantPrice);
-//	                }
-//	            } catch (Exception e) {
-//	                e.printStackTrace();
-//	            }
-//	        }
-//	    }
-//	    return variantPrices;
-//	}
-	
-	
-	
-	
-	
 
 	private MOrder ExistingOrder(String id) {
 		int c_order_id = 0;
