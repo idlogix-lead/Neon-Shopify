@@ -3,6 +3,7 @@ package za.co.ntier.processes;
 import java.math.BigDecimal;
 import java.net.URISyntaxException;
 import java.sql.PreparedStatement;
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -13,7 +14,9 @@ import java.util.logging.Level;
 
 import org.apache.http.client.utils.URIBuilder;
 import org.compiere.model.MOrder;
+import org.compiere.model.MPriceListVersion;
 import org.compiere.model.MProduct;
+import org.compiere.model.MProductPrice;
 import org.compiere.model.PO;
 import org.compiere.model.Query;
 import org.compiere.process.ProcessInfoParameter;
@@ -72,22 +75,18 @@ public class SyncShopifyProduct  extends SvrProcess {
 				(String) sfDefaults.get_Value("consumerkey"), (String) sfDefaults.get_Value("consumersecret"));
 		shopify = new ShopifyAPI(config, ApiVersionType.V1);
 		
-		if (Product_ID != null && !Product_ID.isEmpty()) {
-	   
+		if (Product_ID != null && !Product_ID.isEmpty()) {   
 	        fetchAndProcessSingleProduct(Product_ID);
 	        return "Single product fetched and processed successfully.";
+	        
 	    } else {
-	        int totalProducts = fetchProductsIds(client, builder);
+	        
+	    	int totalProducts = fetchProductsIds(client, builder);
 	        System.out.println("Total number of products fetched: " + totalProducts);
 	        syncVariantsWithProducts(client, builder);
 	        return "Products fetched successfully. Total: " + totalProducts;
 	    }
-//		 int totalProducts = fetchProductsIds(client, builder);
-//	        
-//	        System.out.println("Total number of products fetched: " + totalProducts);
-//	        syncVariantsWithProducts();
-//	        return "Products fetched successfully." + totalProducts ;
-	    }
+  }
 	
 	private int fetchProductsIds(DefaultHttpClient client, URIBuilder builder) throws Exception {
         int totalProducts = 0;
@@ -133,9 +132,7 @@ public class SyncShopifyProduct  extends SvrProcess {
 	            Map<?, ?> product = (Map<?, ?>) mapWcProduct.get("product");
 	            String productName = String.valueOf(product.get("title"));
 	            String description = String.valueOf(product.get("body_html"));
-//	            if (description.length() > 255) {
-//	                description = description.substring(0, 255);
-//	            }
+
 	            MParentProduct parentProduct = productExistsInParentProduct(productId);
 	            if (parentProduct != null) {
 	                updateParentProduct(parentProduct, productName,description);
@@ -159,14 +156,15 @@ public class SyncShopifyProduct  extends SvrProcess {
         for (MParentProduct parentProduct : parentProducts) {
             String productId = parentProduct.getValue();
             String productName = parentProduct.getName(); 
-            List<Map<?, ?>> variantList = fetchVariantsForProduct(productId);
+           List<Map<?, ?>> variantList = fetchVariantsForProduct(productId);
             for (Map<?, ?> variant : variantList) {
                 String variantId = String.valueOf(variant.get("id"));
-                String variantName = String.valueOf(variant.get("title"));    
+                String variantName = String.valueOf(variant.get("title"));  
+               
             if (variantExistsInMProduct(variantId)) {
             	     updateProduct(parentProduct,productName,variantName);
                 }else {
-                	CreateProduct(parentProduct.get_ID(),productId,variantId,variantName,productName);
+                	CreateProduct(parentProduct.get_ID(),variantId,variantName,productName);
                 	
                 }
             }
@@ -174,9 +172,6 @@ public class SyncShopifyProduct  extends SvrProcess {
     }
 	
 	 private List<MParentProduct> getAllParentProducts(DefaultHttpClient client, URIBuilder builder) {
-//	        List<MParentProduct> parentProducts = new Query(getCtx(), MParentProduct.Table_Name, "IsActive='Y'", get_TrxName())
-//	                .list();
-//	        return parentProducts;
 		 List<MParentProduct> parentProducts = new Query(getCtx(), MParentProduct.Table_Name, "IsActive='Y'", get_TrxName()).list();
 		 
 		 List<MParentProduct> filteredParentProducts = new ArrayList<>();
@@ -219,26 +214,6 @@ public class SyncShopifyProduct  extends SvrProcess {
 	        return count > 0;
 	    } 
 	  
-//	  private List<String> fetchVariantIdsForProduct(String productId) throws Exception {
-//	        List<String> variantIds = new ArrayList<>();
-//	        try {
-//	        	 Map<?, ?> mapWcProduct = shopify.get(EndpointBaseType.PRODUCTS.getValue(), productId);
-//	            LinkedHashMap<?, ?> product = (LinkedHashMap<?, ?>) mapWcProduct.get("product");
-//	            List<?> variants = (List<?>) product.get("variants");
-//	            for (Object variantObj : variants) {
-//	                LinkedHashMap<?, ?> variant = (LinkedHashMap<?, ?>) variantObj;
-//	                String variantId = String.valueOf(variant.get("id"));
-//	                variantIds.add(variantId);
-//	            }
-//	        } catch (Exception e) {
-//	            throw new RuntimeException("Error fetching variants for product " + productId + ": " + e.getMessage());
-//	        }
-//	        return variantIds;
-//	    }
-
-	  
-	  
-	  
 	  private List<Map<?, ?>> fetchVariantsForProduct(String productId) throws Exception {
 		    List<Map<?, ?>> variantsList = new ArrayList<>();
 		    try {
@@ -257,25 +232,26 @@ public class SyncShopifyProduct  extends SvrProcess {
 	  
 	  private void createProductsForSingleProduct(MParentProduct parentProduct, Map<?, ?> product) {
 	        List<?> variants = (List<?>) product.get("variants");
-	        String ProductId=  parentProduct.getValue();
 	        String ProductName = parentProduct.getName();
-	        Integer Product_Id = parentProduct.get_ID();
+	        Integer Product_Id = parentProduct.get_ID(); 
 	        for (Object variantObj : variants) {
 	            Map<?, ?> variant = (Map<?, ?>) variantObj;
 	            String variantId = String.valueOf(variant.get("id"));
 	            String variantName = String.valueOf(variant.get("title"));
+	            
+	            
 	            if (variantExistsInMProduct(variantId)) {
 	                updateProduct(parentProduct, product.get("title").toString(), variantName);
 	                log.warning(variantName + "updated");
 	            } else {
-	                CreateProduct(Product_Id, ProductId, variantId, variantName, ProductName);
+	                CreateProduct(Product_Id, variantId, variantName, ProductName);
 	                log.warning(variantName + "created");            }
 	        }
 	    }
 
-		 private void CreateProduct(int myppid,String productId,String VariantId, String variantName, String productName) {
+		 private void CreateProduct(int myppid,String VariantId, String variantName, String productName) {
 		        try {
-		        	 MProduct Product = new MProduct(getCtx(), 0, null);
+		        	 MProduct Product = new MProduct(getCtx(), 0, get_TrxName());
 		        	 Product.setValue(VariantId);
 		        	 Product.setName(productName + " - " + variantName);
 		        	 Product.set_ValueOfColumn("m_parent_product_id", myppid);
@@ -288,7 +264,8 @@ public class SyncShopifyProduct  extends SvrProcess {
 		        	 Product.setIsSold(true);
 		        	 Product.setIsStocked(true);
 		        	 Product.saveEx();
-		             
+		        	 
+		        	 System.out.println(" product name "+Product.getName());
 		        } catch (Exception e) {
 		        	  e.printStackTrace(); 
 		            System.err.println("Error Creating product: " + e.getMessage());
@@ -304,6 +281,8 @@ public class SyncShopifyProduct  extends SvrProcess {
 		             product.setM_AttributeSet_ID(1000000);
 		             product.save();
 		   		
+		             System.out.println(" product name "+product.getName());
+		             
 		        } catch (Exception e) {
 		            System.err.println("Error updating product: " + e.getMessage());
 		        }
@@ -359,5 +338,6 @@ public class SyncShopifyProduct  extends SvrProcess {
     }
     return null;
 	}
-
+	
+	
 }

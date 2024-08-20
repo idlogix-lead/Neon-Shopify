@@ -1,17 +1,19 @@
 package za.co.ntier.processes;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.stream.Collectors;
 
 import org.compiere.model.MProduct;
 import org.compiere.model.MProductPrice;
 import org.compiere.model.PO;
 import org.compiere.model.Query;
+import org.compiere.process.ProcessInfoParameter;
 import org.compiere.process.SvrProcess;
-import org.compiere.util.DB;
+import org.compiere.util.AdempiereUserError;
 import org.compiere.util.Env;
 
 import com.icoderman.shopify.ApiVersionType;
@@ -25,43 +27,71 @@ import za.co.ntier.model.X_zz_shopify;
 
 public class UploadShopifyPrice  extends SvrProcess {
 
+	int Product_ID=0;
+	int Parent_Product_ID=0;
+	int plvID = 0;
 	PO sfDefaults;
 	com.icoderman.shopify.Shopify shopify;
 	
 	@Override
 	protected void prepare() {
-		// TODO Auto-generated method stub
-		
+		ProcessInfoParameter[] para = getParameter();
+		for (int i = 0; i < para.length; i++)
+		{
+			
+			String name = para[i].getParameterName();
+			if (para[i].getParameter() == null)
+				;
+			else if (name.equals("M_Product_ID"))
+				Product_ID = para[i].getParameterAsInt();
+			else if (name.equals("M_Parent_Product_ID"))
+				Parent_Product_ID  = para[i].getParameterAsInt();
+			else
+				log.log(Level.SEVERE, "Unknown Parameter: " + name);	
+		}	
+		plvID = getRecord_ID();
 	}
 
 	@Override
 	protected String doIt() throws Exception {
-		// TODO Auto-generated method stub
 		
-		int plVersion = getRecord_ID();
-		List<MProductPrice> productlist = new Query(getCtx(), MProductPrice.Table_Name, " M_PriceList_Version_ID = ?", null).setParameters(plVersion).list();
-		
-		for(MProductPrice price : productlist) {
-			MProduct product = (MProduct) price.getM_Product();
-			String variantID = product.getValue();
-			BigDecimal listPrice = price.getPriceList();
-			BigDecimal StdPrice = price.getPriceStd();
-			
+		String whereClause = "case when ? <> 0 then m_product_id = ? else m_parent_product_id = ? end ";
+        List<MProduct> products = new Query(getCtx(), MProduct.Table_Name,whereClause, null)
+                .setParameters(Product_ID,Product_ID,Parent_Product_ID).list();
+        
+        String ids = products.stream()
+                .map(product -> String.valueOf(product.get_ID()))
+                .collect(Collectors.joining(","));
+        
+        whereClause = " m_pricelist_version_id = ? ";
+        if(ids.length()>0)
+        	whereClause = whereClause + "AND m_product_id IN (" + ids + ")";
+        List<MProductPrice> prices = new Query(getCtx(), MProductPrice.Table_Name,whereClause, null)
+                .setParameters(plvID).list();
+        
+        for(MProductPrice price:prices) {
+        	
+        	MProduct product = (MProduct) price.getM_Product();
+        	String variantID = product.getValue();
+            BigDecimal listPrice = price.getPriceList();
+            BigDecimal StdPrice = price.getPriceStd();
+
 		
 			 try {
-				 UpdateVariantPriceOnShopify(variantID, listPrice);
+				 UpdateVariantPriceOnShopify(variantID, listPrice,StdPrice);
 	            } catch (Exception e) {
 	                log.warning("Failed to update price for variant ID " + variantID + ": " + e.getMessage());
 	            }
+			 log.warning("Price Completed!" + variantID + "-" + listPrice + "-" + StdPrice );		
 		}
-		
-		log.warning("Price Process Completed!");		
+	
+		 log.warning("Price Process Completed!");	
 		return null;
 	}
 
 	 
 	 
-	 private void UpdateVariantPriceOnShopify(String variantId, BigDecimal Pricelist ) throws Exception {
+	 private void UpdateVariantPriceOnShopify(String variantId, BigDecimal Pricelist,BigDecimal PriceStd ) throws Exception {
 		    String whereClause = " isactive = 'Y' AND AD_Client_ID = ?";
 			sfDefaults = new Query(getCtx(), X_zz_shopify.Table_Name, whereClause, null)
 					.setParameters(new Object[] { Env.getAD_Client_ID(getCtx()) }).firstOnly();
@@ -76,18 +106,24 @@ public class UploadShopifyPrice  extends SvrProcess {
 	 
 			Map<String, Object> updateData = new HashMap<>();
 			Map<String, Object> variantObject = new HashMap<>();
-//		    variantObject.put("id",variantId); 
-		    variantObject.put("price", String.valueOf(Pricelist)); 
+		    variantObject.put("price", String.valueOf(PriceStd));
+		    variantObject.put("compare_at_price", String.valueOf(Pricelist)); 
 			updateData.put("variant", variantObject); 
 
 	
-//	 Map<?, ?> response = shopify.update(EndpointBaseType.VARIANT.getValue(), variantId, updateData);
-
-//	 if (response != null) {
-//	    log .warning("Product updated successfully" + "-" + variantId + "-" + Pricelist);
-//	 } else {
-//		 log .warning("Product didn't updated successfully" + "-" + variantId + "-" + Pricelist);
-//	   }
-	     }
-	
+	 try {
+         Map<?, ?> response = shopify.update(EndpointBaseType.VARIANT.getValue(),variantId, updateData);
+         if (response != null) {
+             log.warning("Product updated successfully - " + variantId + " - " + Pricelist);
+         } else {
+             log.warning("Product didn't update successfully - " + variantId + " - " + Pricelist);
+         }
+     } catch (Exception e) {
+         if (e.getMessage().contains("404")) {
+        	 addBufferLog(0, null, null, "Variant ID Not Found On Shopify Website To Update Price: " + variantId, 0, 0);
+         } else {
+             throw e;
+         }
+     }
+ }
 }

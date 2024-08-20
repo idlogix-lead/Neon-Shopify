@@ -125,39 +125,43 @@ public class Shopify extends SvrProcess {
 					page_info=null;
 					LinkedHashMap<?, ?> mapWcOrders = client.getAll(builder);
 					List<?> wcOrders = (List<?>) mapWcOrders.get("orders"); 
-//					for (int i = 0; i < wcOrders.size(); i++) {
-//						Map<?, ?> order = (Map<?, ?>) wcOrders.get(i);
-//						System.out.println(order.get("name"));
-//					}
-					 for (Object wcOrderObj : wcOrders) {
-			                Map<?, ?> order = (Map<?, ?>) wcOrderObj;
-			                
-			                // Check if the order already exists in the database
-			                String orderNumber = (String) order.get("name");
-			                MOrder existingOrder = ExistingOrder(String.valueOf(orderNumber).replace("#", "")); // Implement this method to find order by order number
-			                
-			                if (existingOrder != null) {
-			                 	
-			                	 addBufferLog(existingOrder.getC_Order_ID(), existingOrder.getDateOrdered(),
-				                            null, "Existing Order : " + existingOrder.getDocumentNo(),
-				                            MOrder.Table_ID, existingOrder.getC_Order_ID());
-			                	
-			                    System.out.println("Order already exists in the database: " + existingOrder.getDocumentNo());
-			                
-			                } else {
-			                    SfOrder wcOrder = new SfOrder(getCtx(), get_TrxName(), sfDefaults);
-			                    MOrder morder = wcOrder.createOrder(order);
-			                    
-			                    List<?> lines = (List<?>) order.get("line_items");
-			                    for (Object lineObj : lines) {
-			                        Map<?, ?> line = (Map<?, ?>) lineObj;
-			                        wcOrder.createOrderLine(line, order);
-			                    }
-			                	addBufferLog(morder.getC_Order_ID(), morder.getDateOrdered(),
-			                            null, "New Order created: " + morder.getDocumentNo(),
-			                            MOrder.Table_ID, morder.getC_Order_ID());
-			                }
-			            }
+					for (int i = 0; i < wcOrders.size(); i++) {
+						Map<?, ?> order = (Map<?, ?>) wcOrders.get(i);
+						processOrder(order);
+						System.out.println(order.get("name"));
+						
+					}
+//					 for (Object wcOrderObj : wcOrders) {
+//			                Map<?, ?> order = (Map<?, ?>) wcOrderObj;
+//			                
+//			                // Check if the order already exists in the database
+//			                String orderNumber = (String) order.get("name");
+//			                MOrder existingOrder = ExistingOrder(String.valueOf(orderNumber).replace("#", "")); // Implement this method to find order by order number
+//			                
+//			                if (existingOrder != null) {
+//			                 	
+//			                	 addBufferLog(existingOrder.getC_Order_ID(), existingOrder.getDateOrdered(),
+//				                            null, "Existing Order : " + existingOrder.getDocumentNo(),
+//				                            MOrder.Table_ID, existingOrder.getC_Order_ID());
+//			                	   SfOrder wcOrder = new SfOrder(getCtx(), get_TrxName(), sfDefaults);
+//			                	   wcOrder.createShippingCharge(order);
+//			                    System.out.println("Order already exists in the database: " + existingOrder.getDocumentNo());
+//			                
+//			                } else {
+//			                    SfOrder wcOrder = new SfOrder(getCtx(), get_TrxName(), sfDefaults);
+//			                    MOrder morder = wcOrder.createOrder(order);
+//			                    
+//			                    List<?> lines = (List<?>) order.get("line_items");
+//			                    for (Object lineObj : lines) {
+//			                        Map<?, ?> line = (Map<?, ?>) lineObj;
+//			                        wcOrder.createOrderLine(line, order);
+//			                    }
+//			                	wcOrder.createShippingCharge(order);
+//			                	addBufferLog(morder.getC_Order_ID(), morder.getDateOrdered(),
+//			                            null, "New Order created: " + morder.getDocumentNo(),
+//			                            MOrder.Table_ID, morder.getC_Order_ID());
+//			                }
+			            
 					 page_info = client.getNextPageLink();
 					builder.removeQuery();
 					if(page_info!=null && page_info.length()!=0)
@@ -227,10 +231,16 @@ public class Shopify extends SvrProcess {
 //		wcOrder.filterbundles(lines);
 		for (int j = 0; j < lines.size(); j++) {
 			Map<?, ?> line = (Map<?, ?>) lines.get(j);
-			wcOrder.createOrderLine(line, order);
-			Object name = line.get("name");
-			System.out.println("Name of Product = " + name.toString());
-		
+//			wcOrder.createOrderLine(line, order);
+//			Object name = line.get("name");
+//			System.out.println("Name of Product = " + name.toString());
+			  String fulfillmentLINEStatus = (String) line.get("fulfillment_status");
+			    
+			    if ("fulfilled".equals(fulfillmentLINEStatus)) {
+			        wcOrder.createOrderLine(line, order);
+			        Object name = line.get("name");
+			        System.out.println("Name of Product = " + name.toString());
+			    }
 
 		}
 		
