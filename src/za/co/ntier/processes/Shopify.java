@@ -77,8 +77,6 @@ public class Shopify extends SvrProcess {
 		String after = dateFormat.format(StartDate);
 		String before = dateFormat.format(EndDate);
 	
-		System.out.println("After Date  " + after);
-		System.out.println("Before Date " + before);
 		
 		String whereClause = " isactive = 'Y' AND AD_Client_ID = ?";
 		sfDefaults = new Query(getCtx(), X_zz_shopify.Table_Name, whereClause, null)

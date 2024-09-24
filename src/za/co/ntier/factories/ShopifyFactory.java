@@ -7,6 +7,7 @@ import za.co.ntier.processes.SyncShopifyProduct;
 import za.co.ntier.processes.UploadShopifyPrice;
 import za.co.ntier.processes.UploadShopifyStock;
 import za.co.ntier.processes.Shopify;
+import za.co.ntier.processes.SyncShopifyLocation;
 
 public class ShopifyFactory implements IProcessFactory{
 
@@ -17,10 +18,12 @@ public class ShopifyFactory implements IProcessFactory{
         } else if (className.equals("za.co.ntier.processes.SyncShopifyProduct")) {
             return new SyncShopifyProduct();
         }else if (className.equals("za.co.ntier.processes.UploadShopifyPrice")) {
-            return new UploadShopifyPrice();
+            return new UploadShopifyPrice();}
+            else if (className.equals("za.co.ntier.processes.SyncShopifyLocation")) {
+                return new SyncShopifyLocation();
             
-//        }else if (className.equals("za.co.ntier.processes.UploadShopifyStock")) {
-//            return new UploadShopifyStock();
+        }else if (className.equals("za.co.ntier.processes.UploadShopifyStock")) {
+            return new UploadShopifyStock();
             
         } else {
             return null;

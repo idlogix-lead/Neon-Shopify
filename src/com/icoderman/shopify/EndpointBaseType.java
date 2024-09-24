@@ -20,6 +20,8 @@ public enum EndpointBaseType {
     TAXES_CLASSES("taxes/classes"),
     WEBHOOKS("webhooks"),
 	ORDER("orders"),
+	lOCATION("locations"),
+	Inventory_Item("inventory_levels/set.json"),
 	VARIANT("variants");
     private String value;
 

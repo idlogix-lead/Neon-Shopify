@@ -1,22 +1,14 @@
 package za.co.ntier.processes;
 
-import java.math.BigDecimal;
 import java.net.URISyntaxException;
-import java.sql.PreparedStatement;
-import java.sql.Timestamp;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.logging.Level;
 
 import org.apache.http.client.utils.URIBuilder;
-import org.compiere.model.MOrder;
-import org.compiere.model.MPriceListVersion;
 import org.compiere.model.MProduct;
-import org.compiere.model.MProductPrice;
 import org.compiere.model.PO;
 import org.compiere.model.Query;
 import org.compiere.process.ProcessInfoParameter;
@@ -61,6 +53,8 @@ public class SyncShopifyProduct  extends SvrProcess {
 				.setParameters(new Object[] { Env.getAD_Client_ID(getCtx()) }).firstOnly();
 		if (sfDefaults == null)
 			throw new IllegalStateException("/nShopify Defaults need to be set on iDempiere /n");
+		
+		
 		DefaultHttpClient client = new DefaultHttpClient((String) sfDefaults.get_Value("consumerkey"),
 				(String) sfDefaults.get_Value("consumerSecret"));
 		URIBuilder builder = null;
@@ -160,11 +154,14 @@ public class SyncShopifyProduct  extends SvrProcess {
             for (Map<?, ?> variant : variantList) {
                 String variantId = String.valueOf(variant.get("id"));
                 String variantName = String.valueOf(variant.get("title"));  
+	            String inventoryItemIdLong = String.valueOf(variant.get("inventory_item_id"));
+
+                System.out.println("Converted int value: " + inventoryItemIdLong);
                
             if (variantExistsInMProduct(variantId)) {
-            	     updateProduct(parentProduct,productName,variantName);
+            	     updateProduct(variantId,productName,variantName,inventoryItemIdLong);
                 }else {
-                	CreateProduct(parentProduct.get_ID(),variantId,variantName,productName);
+                	CreateProduct(parentProduct.get_ID(),variantId,variantName,productName,inventoryItemIdLong);
                 	
                 }
             }
@@ -238,23 +235,26 @@ public class SyncShopifyProduct  extends SvrProcess {
 	            Map<?, ?> variant = (Map<?, ?>) variantObj;
 	            String variantId = String.valueOf(variant.get("id"));
 	            String variantName = String.valueOf(variant.get("title"));
-	            
-	            
+	            String inventoryItemIdLong = String.valueOf(variant.get("inventory_item_id")); 
+	           
+	            System.out.println("Converted int value: " + inventoryItemIdLong);
+	                
 	            if (variantExistsInMProduct(variantId)) {
-	                updateProduct(parentProduct, product.get("title").toString(), variantName);
+	                updateProduct(variantId, product.get("title").toString(), variantName,inventoryItemIdLong);
 	                log.warning(variantName + "updated");
 	            } else {
-	                CreateProduct(Product_Id, variantId, variantName, ProductName);
+	                CreateProduct(Product_Id, variantId, variantName, ProductName,inventoryItemIdLong);
 	                log.warning(variantName + "created");            }
 	        }
 	    }
 
-		 private void CreateProduct(int myppid,String VariantId, String variantName, String productName) {
+		 private void CreateProduct(int myppid,String VariantId, String variantName, String productName,String inventoryItemId) {
 		        try {
 		        	 MProduct Product = new MProduct(getCtx(), 0, get_TrxName());
 		        	 Product.setValue(VariantId);
 		        	 Product.setName(productName + " - " + variantName);
 		        	 Product.set_ValueOfColumn("m_parent_product_id", myppid);
+		        	 Product.set_ValueOfColumn("inventory_item_id", inventoryItemId);	        	
 		        	 Product.setAD_Org_ID(Env.getAD_Org_ID(getCtx()));
 		        	 Product.setC_UOM_ID(100);
 		        	 Product.setC_TaxCategory_ID(1000000);
@@ -272,22 +272,41 @@ public class SyncShopifyProduct  extends SvrProcess {
 		        }
 		    }
 		 
-		 private void updateProduct(MParentProduct pp, String productName, String variantName) {
-		        try {
-		        	 int productId = pp.get_ID(); 
-		             MProduct product = getProductByParentProductId(productId);
-		             product.setAD_Org_ID(Env.getAD_Org_ID(getCtx()));    
-		             product.setName(productName + "-" + variantName);
-		             product.setM_AttributeSet_ID(1000000);
-		             product.save();
-		   		
-		             System.out.println(" product name "+product.getName());
-		             
-		        } catch (Exception e) {
-		            System.err.println("Error updating product: " + e.getMessage());
-		        }
-		    }
-		 
+		 private void updateProduct(String variantId, String productName, String variantName, String inventoryItemId) {
+			    try {
+			        MProduct product = getProductByVariantId(variantId);
+			        if (product != null) {
+			            product.setAD_Org_ID(Env.getAD_Org_ID(getCtx()));
+			            product.setName(productName + "-" + variantName);
+			            product.set_ValueOfColumn("inventory_item_id", inventoryItemId);
+			            product.setM_AttributeSet_ID(1000000); 
+			            product.save();
+
+			            System.out.println("Product updated: " + product.getName());
+			        } else {
+			            System.err.println("Error: Product not found for variantId " + variantId);
+			        }
+			    } catch (Exception e) {
+			        System.err.println("Error updating product: " + e.getMessage());
+			    }
+			}
+//		 private void updateProduct(MParentProduct pp, String productName, String variantName,int InventoryItemId) {
+//		        try {
+//		        	 int productId = pp.get_ID(); 
+//		             MProduct product = getProductByParentProductId(productId);
+//		             product.setAD_Org_ID(Env.getAD_Org_ID(getCtx()));    
+//		             product.setName(productName + "-" + variantName);
+//		        	 product.set_ValueOfColumn("inventory_item_id", InventoryItemId);	 
+//		             product.setM_AttributeSet_ID(1000000);
+//		             product.save();
+//		   		
+//		             System.out.println(" product name "+product.getName());
+//		             
+//		        } catch (Exception e) {
+//		            System.err.println("Error updating product: " + e.getMessage());
+//		        }
+//		    }
+//		 
 		 
 	 private MParentProduct CreateParentProduct(String productId, String productName,String description) {
 	        try {
@@ -320,13 +339,20 @@ public class SyncShopifyProduct  extends SvrProcess {
 	        }
 	    }
 	
-	  
-	  private MProduct getProductByParentProductId(int parentProductId) {
-		    String whereClause = "m_parent_product_id = ?";
-		    return new Query(getCtx(), MProduct.Table_Name, whereClause, null)
-		            .setParameters(parentProductId)
+	  private MProduct getProductByVariantId(String variantId) {
+		  String whereClause = "Value = ?";
+		    MProduct product = new Query(getCtx(), MProduct.Table_Name, whereClause, null)
+		            .setParameters(variantId)
 		            .first();
-		}
+
+		    return product;	}
+	  
+//	  private MProduct getProductByParentProductId(int parentProductId) {
+//		    String whereClause = "m_parent_product_id = ?";
+//		    return new Query(getCtx(), MProduct.Table_Name, whereClause, null)
+//		            .setParameters(parentProductId)
+//		            .first();
+//		}
 	
 	private MParentProduct productExistsInParentProduct(String productId) {
 		int m_parent_product_id= 0;
