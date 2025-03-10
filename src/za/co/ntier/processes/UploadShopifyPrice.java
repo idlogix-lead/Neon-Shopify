@@ -55,19 +55,24 @@ public class UploadShopifyPrice  extends SvrProcess {
 	@Override
 	protected String doIt() throws Exception {
 		
-		String whereClause = "case when ? <> 0 then m_product_id = ? else m_parent_product_id = ? end ";
-        List<MProduct> products = new Query(getCtx(), MProduct.Table_Name,whereClause, null)
-                .setParameters(Product_ID,Product_ID,Parent_Product_ID).list();
+		String whereClause = "AD_Client_ID = ? AND (" +
+			    "CASE " +
+			    "WHEN ? <> 0 THEN M_Product_ID = ? " +
+			    "WHEN ? <> 0 THEN M_Parent_Product_ID = ? " +
+			    "ELSE 1=1 " +
+			    "END)";
+List<MProduct> products = new Query(getCtx(), MProduct.Table_Name,whereClause, null)
+                .setParameters( Env.getAD_Client_ID(getCtx()),Product_ID, Product_ID, Parent_Product_ID, Parent_Product_ID).list();
         
         String ids = products.stream()
                 .map(product -> String.valueOf(product.get_ID()))
                 .collect(Collectors.joining(","));
         
-        whereClause = " m_pricelist_version_id = ? ";
+        whereClause = "AD_Client_ID = ? AND M_PriceList_Version_ID = ?";
         if(ids.length()>0)
         	whereClause = whereClause + "AND m_product_id IN (" + ids + ")";
         List<MProductPrice> prices = new Query(getCtx(), MProductPrice.Table_Name,whereClause, null)
-                .setParameters(plvID).list();
+                .setParameters( Env.getAD_Client_ID(getCtx()),plvID).list();
         
         for(MProductPrice price:prices) {
         	

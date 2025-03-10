@@ -23,6 +23,7 @@ import org.adempiere.webui.panel.ADForm;
 import org.adempiere.webui.window.Dialog;
 import org.compiere.model.I_C_Order;
 import org.compiere.model.MOrder;
+import org.compiere.model.MStorageOnHand;
 import org.compiere.model.MUser;
 import org.compiere.model.Query;
 import org.compiere.util.DB;
@@ -333,7 +334,6 @@ public class PackingForm  extends ADForm {
 			if(order==null || order.getC_Order_ID()<=0 )
 				return;
 			
-				
 				order.setDocAction("CO");
 				
 			if (order.processIt("CO"))
