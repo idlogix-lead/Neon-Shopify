@@ -18,6 +18,7 @@ public class ModelFactory implements IModelFactory {
 		
 		
 		if (tableName.equals(MCourierCompany.Table_Name)) { return MCourierCompany.class; }
+		
 		if (tableName.equals(MParentProduct.Table_Name)) { return MParentProduct.class; }
 		
 		
