@@ -19,7 +19,8 @@ public enum EndpointBaseType {
     TAXES("taxes"),
     TAXES_CLASSES("taxes/classes"),
     WEBHOOKS("webhooks"),
-	ORDER("orders");
+	ORDER("orders"),
+	VARIANT("variants");
     private String value;
 
     EndpointBaseType(String value) {

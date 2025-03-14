@@ -98,6 +98,7 @@ public class Shopify extends SvrProcess {
 				(String) sfDefaults.get_Value("consumerkey"), (String) sfDefaults.get_Value("consumersecret"));
 		shopify = new ShopifyAPI(config, ApiVersionType.V1);
 		
+		
 
         List<String> fetchedOrders = new ArrayList<>();
 		
@@ -129,31 +130,35 @@ public class Shopify extends SvrProcess {
 //						System.out.println(order.get("name"));
 //					}
 					 for (Object wcOrderObj : wcOrders) {
-		                    // Initialize SfOrder
-		                    SfOrder wcOrder = new SfOrder(getCtx(), get_TrxName(), sfDefaults);
-		                    Map<?, ?> order = (Map<?, ?>) wcOrderObj;
-
-		                    // Create MOrder object and add to fetchedOrders
-		                    MOrder morder = wcOrder.createOrder(order);
-		                    addBufferLog(morder.getC_Order_ID(), morder.getDateOrdered(),
-		                            null, ("Updated Order ---------------->" ) + morder.getDocumentNo(),
-		                            MOrder.Table_ID, morder.getC_Order_ID());
-
-		                    morder.saveEx();
-
-		                    // Iterate through each order line
-		                    List<?> lines = (List<?>) order.get("line_items");
-		                    for (int j = 0; j < lines.size(); j++) {
-		                        Map<?, ?> line = (Map<?, ?>) lines.get(j);
-		                        wcOrder.createOrderLine(line, order);  // Assuming wcOrder has createOrderLine method
-		                        Object name = line.get("name");
-		                        System.out.println("Name of Product = " + name.toString());
-		                    }
-
-		                    // Add order information to fetchedOrders list
-		                    fetchedOrders.add(morder.toString());  // Ensure morder.toString() provides the desired order information
-		                }
-					page_info = client.getNextPageLink();
+			                Map<?, ?> order = (Map<?, ?>) wcOrderObj;
+			                
+			                // Check if the order already exists in the database
+			                String orderNumber = (String) order.get("name");
+			                MOrder existingOrder = ExistingOrder(String.valueOf(orderNumber).replace("#", "")); // Implement this method to find order by order number
+			                
+			                if (existingOrder != null) {
+			                 	
+			                	 addBufferLog(existingOrder.getC_Order_ID(), existingOrder.getDateOrdered(),
+				                            null, "Existing Order : " + existingOrder.getDocumentNo(),
+				                            MOrder.Table_ID, existingOrder.getC_Order_ID());
+			                    System.out.println("Order already exists in the database: " + existingOrder.getDocumentNo());
+			                
+			                } else {
+			                    SfOrder wcOrder = new SfOrder(getCtx(), get_TrxName(), sfDefaults);
+			                    MOrder morder = wcOrder.createOrder(order);
+			                    
+			                    List<?> lines = (List<?>) order.get("line_items");
+			                    for (Object lineObj : lines) {
+			                        Map<?, ?> line = (Map<?, ?>) lineObj;
+			                        wcOrder.createOrderLine(line, order);
+			                    }
+			                    
+			                    addBufferLog(morder.getC_Order_ID(), morder.getDateOrdered(),
+			                            null, "New Order created: " + morder.getDocumentNo(),
+			                            MOrder.Table_ID, morder.getC_Order_ID());
+			                }
+			            }
+					 page_info = client.getNextPageLink();
 					builder.removeQuery();
 					if(page_info!=null && page_info.length()!=0)
 						builder.addParameter("page_info", page_info);
@@ -169,6 +174,8 @@ public class Shopify extends SvrProcess {
 	}
 	
 	private void processOrder(Map<?,?> order) {
+		
+//		  Map<Long, Double> variantPrices = fetchVariantPrices(order);
 		 String fulfillmentStatus = (String) order.get("fulfillment_status");
 
 		    if (fulfillmentStatus == null || !fulfillmentStatus.equalsIgnoreCase("fulfilled")) {
@@ -224,7 +231,45 @@ public class Shopify extends SvrProcess {
 			wcOrder.createOrderLine(line, order);
 			Object name = line.get("name");
 			System.out.println("Name of Product = " + name.toString());
+		
+
 		}
+		
+//		   List<?> variantline = (List<?>) order.get("line_items");
+//		    for (int j = 0; j < variantline.size(); j++) {
+//		        Map<?, ?> line = (Map<?, ?>) variantline.get(j);
+//		        Object variantIdObj = line.get("variant_id");
+//		        if (variantIdObj != null) {
+//		            String variantId = variantIdObj.toString();
+//		            // Construct the URL for fetching the variant information
+//		            String variantUrl = sfDefaults.get_Value("url") + "/admin/api/2024-01/variants/" + variantId + ".json";
+//		            try {
+//		                // Make an API call to Shopify to retrieve the variant information
+//		                Map<?, ?> variantResponse = shopify.get(EndpointBaseType.VARIANT.getValue(), variantId);
+//		                // Parse the response to extract the price of the variant
+//		                Map<?, ?> variantData = (Map<?, ?>) variantResponse.get("variant");
+//		                Object variantPriceObj = variantData.get("price");
+//		                if (variantPriceObj != null) {
+//		                    double variantPrice = Double.parseDouble(variantPriceObj.toString());
+//		                    // Use or store the variant price as needed
+//		                    System.out.println("Variant Price: " + variantPrice);
+//		                    System.out.println("Variant Price: " + variantData);
+//		                    
+//		                    Object productIdObj = line.get("product_id");
+//		                    if (productIdObj != null) {
+//		                        int m_Product_ID = Integer.parseInt(productIdObj.toString());
+//		                        wcOrder.createProductPrice(m_Product_ID, line, variantPrice);
+//		                    } else {
+//		                        System.err.println("Product ID not found for line item: " + line);
+//		                    }
+//		                }
+//		            } catch (Exception e) {
+//		                e.printStackTrace();
+//		                // Handle any exceptions
+//		            
+//		            }}
+		}
+		
 //		wcOrder.addShippingCharges(order);
 //		wcOrder.addCoupon(order);
 //		Map<String, Object> body = new HashMap<>();
@@ -237,8 +282,36 @@ public class Shopify extends SvrProcess {
 //		Map<?, ?> response = wooCommerce.update(EndpointBaseType.ORDERS.getValue(), id, body);
 //		System.out.println(response.toString());
 		
-	}
+//	public Map<Long, Double> fetchVariantPrices(Map<?, ?> orderSf) {
+//	    Map<Long, Double> variantPrices = new HashMap<>();
+//	    List<?> variantline = (List<?>) orderSf.get("line_items");
+//	    for (int j = 0; j < variantline.size(); j++) {
+//	        Map<?, ?> line = (Map<?, ?>) variantline.get(j);
+//	        Object variantIdObj = line.get("variant_id");
+//	        if (variantIdObj != null) {
+//	            String variantId = variantIdObj.toString();
+//	            String variantUrl = sfDefaults.get_Value("url") + "/admin/api/2024-01/variants/" + variantId + ".json";
+//	            try {
+//	                Map<?, ?> variantResponse = shopify.get(EndpointBaseType.VARIANT.getValue(), variantId);
+//	                Map<?, ?> variantData = (Map<?, ?>) variantResponse.get("variant");
+//	                Object variantPriceObj = variantData.get("price");
+//	                if (variantPriceObj != null) {
+//	                    double variantPrice = Double.parseDouble(variantPriceObj.toString());
+//	                    variantPrices.put(Long.parseLong(variantId), variantPrice);
+//	                }
+//	            } catch (Exception e) {
+//	                e.printStackTrace();
+//	            }
+//	        }
+//	    }
+//	    return variantPrices;
+//	}
 	
+	
+	
+	
+	
+
 	private MOrder ExistingOrder(String id) {
 		int c_order_id = 0;
 		String sql = "SELECT c_order_id FROM c_order "
