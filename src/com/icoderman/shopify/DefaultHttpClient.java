@@ -83,6 +83,7 @@ public class DefaultHttpClient implements HttpClient {
 			uriBuilder.addParameters(postParameters);
 			httpPost = new HttpPost(uriBuilder.build());
 			httpPost.setHeader(CONTENT_TYPE, APPLICATION_JSON);
+			httpPost.setHeader("X-Shopify-Access-Token", "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");
 			return postEntity(object, httpPost);
 		} catch (URISyntaxException e) {
 			throw new RuntimeException(e);
@@ -146,7 +147,7 @@ public class DefaultHttpClient implements HttpClient {
 			HttpEntity httpEntity = httpResponse.getEntity();
 			// yogan naidoo added
 			int statusCode = httpResponse.getStatusLine().getStatusCode();
-			if (httpEntity == null || (!(statusCode >= 200 && statusCode < 300))) {
+			if (httpEntity == null || (!(statusCode >= 200 && statusCode < 502))) {
 				throw new RuntimeException("Error retrieving results from http request" + "- Status Code: " + statusCode
 						+ "\r\n" + " Response: "+httpResponse.getStatusLine().getReasonPhrase());
 			}

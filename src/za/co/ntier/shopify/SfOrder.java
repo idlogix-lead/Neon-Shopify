@@ -182,7 +182,7 @@ public final class SfOrder {
 		orderLine.setM_Warehouse_ID(order.getM_Warehouse_ID());
 		long qty = ((Number) line.get("quantity")).longValue();
 		orderLine.setQty(BigDecimal.valueOf((long) qty));
-		setLinePricing(orderLine,line);
+		setLinePricing(orderLine);
 //		orderLine.setPrice(BigDecimal.valueOf(priceList));
 		
 		
@@ -199,14 +199,14 @@ public final class SfOrder {
 	}
 	
 	
-void setLinePricing(MOrderLine oline,Map<?, ?> line) {
-		oline.set_TrxName(order.get_TrxName());
+void setLinePricing(MOrderLine oline) {
+		
 		MOrder order = (MOrder)oline.getC_Order();
 		MBPartner customer = (MBPartner) order.getC_BPartner();
 		int id = oline.getM_Product_ID();
+		
 		IProductPricing pp = Core.getProductPricing();
-		double LinePriceList =Double.parseDouble((String) line.get("price")); 
-		pp.setInitialValues(id, customer.getC_BPartner_ID(), Env.ONE,true, order.get_TrxName());
+		pp.setInitialValues(id, customer.getC_BPartner_ID(), Env.ONE,true, null);
 		Timestamp orderDate = (Timestamp)order.getDateOrdered();
 		pp.setPriceDate(orderDate);
 		pp.setOrderLine(oline, null);
@@ -216,34 +216,19 @@ void setLinePricing(MOrderLine oline,Map<?, ?> line) {
 				+ "FROM M_PriceList_Version plv "
 				+ "WHERE plv.M_PriceList_ID=? "						//	1
 				+ " AND plv.ValidFrom <= ? "
-				+ "ORDER BY plv.ValidFrom DESC";			
-		int M_PriceList_Version_ID = DB.getSQLValueEx(null, sql, M_PriceList_ID, orderDate);
+				+ "ORDER BY plv.ValidFrom DESC";
+			//	Use newest price list - may not be future
 
-		if (M_PriceList_Version_ID > 0) {
-	        pp.setM_PriceList_Version_ID(M_PriceList_Version_ID);
-	        BigDecimal priceList = pp.getPriceList();
-//	        BigDecimal priceLimit = pp.getPriceLimit();
-//	        BigDecimal priceStd = pp.getPriceStd();
-	       BigDecimal LinePricing = (BigDecimal.valueOf(LinePriceList));
-	        if (priceList.compareTo(LinePricing) <= 0 && priceList.compareTo(LinePricing) <= 0) {
-	            oline.setPriceList(priceList);
-	            oline.setPriceLimit(priceList); 
-	            oline.setPriceActual(priceList);           
-	            oline.setPriceEntered(priceList); 
-	        } else {
-	        	oline.setPriceList(priceList);
-	    		oline.setPriceLimit(LinePricing);
-	    		oline.setPriceActual(LinePricing);
-	    		oline.setPriceEntered(LinePricing);
-	            
-	        }
-	        oline.setC_Currency_ID(Integer.valueOf(pp.getC_Currency_ID()));
-	        oline.setDiscount(pp.getDiscount());
-	        oline.setC_UOM_ID(Integer.valueOf(pp.getC_UOM_ID()));
-	    } else {
-	        System.out.println("Price list version not found for order: " + order.getDocumentNo());
-	    }
-}
+		int M_PriceList_Version_ID = DB.getSQLValueEx(null, sql, M_PriceList_ID, orderDate);
+		pp.setM_PriceList_Version_ID(M_PriceList_Version_ID);
+		oline.setPriceList(pp.getPriceList());
+		oline.setPriceLimit(pp.getPriceLimit());
+		oline.setPriceActual(pp.getPriceStd());
+		oline.setPriceEntered(pp.getPriceStd());
+		oline.setC_Currency_ID(Integer.valueOf(pp.getC_Currency_ID()));
+		oline.setDiscount(pp.getDiscount());
+		oline.setC_UOM_ID(Integer.valueOf(pp.getC_UOM_ID()));
+	}
 		
 	private String getProductID(Map<?, ?> line) {
 		Object prodID = line.get("variant_id");
@@ -276,15 +261,20 @@ void setLinePricing(MOrderLine oline,Map<?, ?> line) {
 			shopify = new ShopifyAPI(config, ApiVersionType.V1);
 		 Object variantIdObj =  getProductID(line);
 		    double variantPrice = 0.0;
-		    
+		    double comparePrice = 0.0; 
 		    if (variantIdObj != null) {
 		        String variantId = variantIdObj.toString();
 		        try {
 		            Map<?, ?> variantResponse = shopify.get(EndpointBaseType.VARIANT.getValue(), variantId);
 		            Map<?, ?> variantData = (Map<?, ?>) variantResponse.get("variant");
 		            Object variantPriceObj = variantData.get("price");
+		            Object ComparePriceObj = variantData.get("compare_at_price");
+		            
 		            if (variantPriceObj != null) {
 		                variantPrice = Double.parseDouble(variantPriceObj.toString());
+		            }
+		            if (ComparePriceObj != null) {
+		            	comparePrice = Double.parseDouble(ComparePriceObj.toString());
 		            }
 		        } catch (Exception e) {
 		            e.printStackTrace();
@@ -303,7 +293,7 @@ void setLinePricing(MOrderLine oline,Map<?, ?> line) {
 	        
 	        int m_Product_ID = product.getM_Product_ID();
 	        if (!productPriceExists(m_Product_ID)) {
-	            createProductPrice(m_Product_ID, line,variantPrice);
+	            createProductPrice(m_Product_ID, line,variantPrice,comparePrice);
 	        }
 	        
 	        return m_Product_ID;
@@ -324,24 +314,25 @@ void setLinePricing(MOrderLine oline,Map<?, ?> line) {
 	    	return version!=null?version.get_ID():0;
 	    }
 	    
-	    public void createProductPrice(int m_Product_ID,Map<?, ?> line,double variantPrice) {	    	
+	    public void createProductPrice(int m_Product_ID,Map<?, ?> line,double variantPrice,double compareprice) {	    	
 	    	int versionid = getPriceVersionID();
 	    	BigDecimal variantPriceBigDecimal = BigDecimal.valueOf(variantPrice);
+	    	BigDecimal comparePriceBigDecimal = BigDecimal.valueOf(compareprice);
 	    	
 	        MProductPrice productPrice = new MProductPrice(ctx, 0, trxName);
 	        productPrice.setM_Product_ID(m_Product_ID);
 	        productPrice.setM_PriceList_Version_ID(versionid);
 	        productPrice.setPriceStd(variantPriceBigDecimal);
-	        productPrice.setPriceList(variantPriceBigDecimal);
+	        productPrice.setPriceList(comparePriceBigDecimal);
 	        productPrice.setPriceLimit(variantPriceBigDecimal);
 	        productPrice.saveEx();
 	    }
 
 	public void createShippingCharge(Map<?, ?> orderWc) {
 		BigDecimal shippingCost = getShippingCost(orderWc);
-		if (shippingCost.compareTo(BigDecimal.ZERO) == 0) {
-		return; // no need to create a shipping charge
-		}
+//		if (shippingCost.compareTo(BigDecimal.ZERO) == 0) {
+//		return; // no need to create a shipping charge
+//		}
 		
 		MOrderLine orderLine = new MOrderLine(order);
 		orderLine.setAD_Org_ID(order.getAD_Org_ID());

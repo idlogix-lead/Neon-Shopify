@@ -11,6 +11,7 @@ import org.apache.http.client.utils.URIBuilder;
 public class ShopifyAPI implements Shopify {
 
     private static final String API_URL_FORMAT = "%s/%s%s";
+    private static final String API_URL_Shopify = "%s/admin/api/%s/%s";
     private static final String API_URL_BATCH_FORMAT = "%s/wp-json/wc/%s/%s/batch";
     private static final String API_URL_ONE_ENTITY_FORMAT = "%s/admin/api/%s/%s/%s.json";
     private static final String API_URL_GET_ENTITY_FORMAT = "%s/admin/%s/%s.json";
@@ -29,7 +30,7 @@ public class ShopifyAPI implements Shopify {
 
     @Override
     public Map<?, ?> create(String endpointBase, Map<String, Object> object) {
-        String url = String.format(API_URL_FORMAT, config.getUrl(), apiVersion, endpointBase);
+        String url = String.format(API_URL_Shopify, config.getUrl(), apiVersion, endpointBase);
         return client.post(url, OAuthSignature.getAsMap(config, url, HttpMethod.POST), object);
     }
 

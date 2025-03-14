@@ -4,9 +4,10 @@ import org.adempiere.base.IProcessFactory;
 import org.compiere.process.ProcessCall;
 
 import za.co.ntier.processes.SyncShopifyProduct;
-import za.co.ntier.processes.SyncShopifyProductPrice;
 import za.co.ntier.processes.UploadShopifyPrice;
+import za.co.ntier.processes.UploadShopifyStock;
 import za.co.ntier.processes.Shopify;
+import za.co.ntier.processes.SyncShopifyLocation;
 
 public class ShopifyFactory implements IProcessFactory{
 
@@ -16,10 +17,13 @@ public class ShopifyFactory implements IProcessFactory{
             return new Shopify();
         } else if (className.equals("za.co.ntier.processes.SyncShopifyProduct")) {
             return new SyncShopifyProduct();
-        } else if (className.equals("za.co.ntier.processes.SyncShopifyProductPrice")) {
-            return new SyncShopifyProductPrice();
         }else if (className.equals("za.co.ntier.processes.UploadShopifyPrice")) {
-            return new UploadShopifyPrice();
+            return new UploadShopifyPrice();}
+            else if (className.equals("za.co.ntier.processes.SyncShopifyLocation")) {
+                return new SyncShopifyLocation();
+            
+        }else if (className.equals("za.co.ntier.processes.UploadShopifyStock")) {
+            return new UploadShopifyStock();
             
         } else {
             return null;
